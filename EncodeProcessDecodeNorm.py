@@ -70,7 +70,7 @@ class EncodeProcessDecode(snt.Module):
         cur_velocity = inputs['velocity']
         target_velocity = inputs['target|velocity']
         target_velocity_change = target_velocity - cur_velocity
-        target_normalized = self._out_norm(target_velocity_change)
+        target_normalized = self._out_norm(target_velocity_change, True)
 
         # build loss
         node_type = inputs['node_type'][:, 0]
