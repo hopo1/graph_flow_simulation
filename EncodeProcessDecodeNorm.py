@@ -21,26 +21,26 @@ class EncodeProcessDecode(snt.Module):
             use_globals=False)
         self.steps = steps
         self.learn_features = learn_features
-        self._edge_norm = Normalizer(edge_feat_cnt)
-        self._node_norm = Normalizer(node_feat_cnt)
-        self._out_norm = Normalizer(self.learn_features)
-        self._encode_nodes = self._make_mlp(self.lat_size)
-        self._encode_features = self._make_mlp(self.lat_size)
-        self._decode_nodes = self._make_mlp(self.learn_features, False)
+        self._edge_norm = Normalizer(edge_feat_cnt, name="EdgeNormalizer")
+        self._node_norm = Normalizer(node_feat_cnt, name="NodeNormalizer")
+        self._out_norm = Normalizer(self.learn_features, name="OutputNormalizer")
+        self._encode_nodes = self._make_mlp(self.lat_size, name="NodeEncode")
+        self._encode_edges = self._make_mlp(self.lat_size, name="EdgeEncode")
+        self._decode_nodes = self._make_mlp(self.learn_features, False, name="NodeDecode")
 
     def _encode(self, grp):
-        return grp.replace(nodes=self._encode_nodes(grp.nodes), edges=self._encode_features(grp.edges))
+        return grp.replace(nodes=self._encode_nodes(grp.nodes), edges=self._encode_edges(grp.edges))
 
     def _decode(self, grp):
         return grp.replace(nodes=self._decode_nodes(grp.nodes))
 
-    def _make_mlp(self, output_size, layer_norm=True):
+    def _make_mlp(self, output_size, layer_norm=True, name=None):
         # todo add citation
         """Builds an MLP."""
         widths = [self.lat_size] * self.n_layers + [output_size]
         network = snt.nets.MLP(widths, activate_final=False)
         if layer_norm:
-            network = snt.Sequential([network, snt.LayerNorm(-1, True, True)])
+            network = snt.Sequential([network, snt.LayerNorm(-1, True, True)], name=name)
         return network
 
     def predict_next(self, grp):
