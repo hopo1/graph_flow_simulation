@@ -14,10 +14,10 @@ class EncodeProcessDecode(snt.Module):
         self.n_layers = n_layers
         self.lat_size = lat_size
         self._to_nodes = blocks.NodeBlock(
-            node_model_fn=lambda: self._make_mlp(self.lat_size),
+            node_model_fn=lambda: self._make_mlp(self.lat_size, name="NodeNets"),
             use_globals=False)
         self._to_edges = blocks.EdgeBlock(
-            edge_model_fn=lambda: self._make_mlp(self.lat_size),
+            edge_model_fn=lambda: self._make_mlp(self.lat_size, name="EdgeNets"),
             use_globals=False)
         self.steps = steps
         self.learn_features = learn_features
@@ -38,16 +38,10 @@ class EncodeProcessDecode(snt.Module):
         # todo add citation
         """Builds an MLP."""
         widths = [self.lat_size] * self.n_layers + [output_size]
-        network = snt.nets.MLP(widths, activate_final=False)
+        network = snt.nets.MLP(widths, activate_final=False, name=name)
         if layer_norm:
-            network = snt.Sequential([network, snt.LayerNorm(-1, True, True)], name=name)
+            network = snt.Sequential([network, snt.LayerNorm(-1, True, True, name=name)], name=name)
         return network
-
-    def predict_next(self, grp):
-        d2 = self._to_edges(grp)
-        d3 = self._to_nodes(d2)
-        new_speed = grp.nodes[..., :self.learn_features] + d3.nodes[..., :self.learn_features]
-        return grp.replace(nodes=tf.concat([new_speed, grp.nodes[..., self.learn_features:]], 1))
 
     def __call__(self, grp, is_learning=False):
         st = grp
