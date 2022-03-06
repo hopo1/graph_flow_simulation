@@ -8,11 +8,12 @@ from common import NodeType
 
 class EncodeProcessDecode(snt.Module):
 
-    def __init__(self, steps, learn_features, n_layers, lat_size, edge_feat_cnt, node_feat_cnt,
+    def __init__(self, steps, learn_features, n_layers, lat_size, edge_feat_cnt, node_feat_cnt, la_norm=True,
                  name="EncodeProcessDecode"):
         super(EncodeProcessDecode, self).__init__(name=name)
         self.n_layers = n_layers
         self.lat_size = lat_size
+        self.la_norm = la_norm
         self._to_nodes = blocks.NodeBlock(
             node_model_fn=lambda: self._make_mlp(self.lat_size),
             use_globals=False)
@@ -39,6 +40,7 @@ class EncodeProcessDecode(snt.Module):
         """Builds an MLP."""
         widths = [self.lat_size] * self.n_layers + [output_size]
         network = snt.nets.MLP(widths, activate_final=False, name=name)
+        layer_norm = self.la_norm and layer_norm
         if layer_norm:
             network = snt.Sequential([network, snt.LayerNorm(-1, True, True, name=name)], name=name)
         return network
