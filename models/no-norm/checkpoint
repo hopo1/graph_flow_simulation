@@ -1,2 +1,2 @@
-model_checkpoint_path: "no-norm-3"
-all_model_checkpoint_paths: "no-norm-3"
+model_checkpoint_path: "no-norm-38"
+all_model_checkpoint_paths: "no-norm-38"
