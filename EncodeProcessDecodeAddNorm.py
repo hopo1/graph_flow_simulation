@@ -50,8 +50,8 @@ class EncodeProcessDecode(snt.Module):
         grp = grp.replace(nodes=self._node_norm(grp.nodes, is_learning), edges=self._edge_norm(grp.edges, is_learning))
         grp = self._encode(grp)
         for _ in range(self.steps):
-            grp = grp.replace(edges=self._to_edges(grp) + grp.edges)
-            grp = grp.replace(nodes=self._to_nodes(grp) + grp.nodes)
+            grp = grp.replace(edges=self._to_edges(grp).edges + grp.edges)
+            grp = grp.replace(nodes=self._to_nodes(grp).nodes + grp.nodes)
         if is_learning:
             return self._decode(grp)
         else:
