@@ -1,11 +1,26 @@
-import functools
-
 import sonnet as snt
 import tensorflow as tf
 from graph_nets import blocks
 
 from Normalizer import Normalizer
 from common import NodeType
+
+
+class OnePass(snt.Module):
+    def __init__(self, mlp_func, name="OnePass"):
+        super(OnePass, self).__init__(name=name)
+        self._to_nodes = blocks.NodeBlock(
+            node_model_fn=lambda: mlp_func(),
+            use_globals=False)
+        self._to_edges = blocks.EdgeBlock(
+            edge_model_fn=lambda: mlp_func(),
+            use_globals=False)
+
+    def __call__(self, grp):
+        st = grp
+        grp = self._to_edges(grp)
+        grp = self._to_nodes(grp)
+        return st.replace(nodes=st.nodes + grp.nodes, edges=st.edges + grp.edges)
 
 
 class EncodeProcessDecode(snt.Module):
@@ -17,9 +32,8 @@ class EncodeProcessDecode(snt.Module):
         self.lat_size = lat_size
         self.la_norm = la_norm
         self.steps = steps
-        model_fn = functools.partial(self._make_mlp, output_size=self.lat_size)
-        #self._passes = OnePass(model_fn)
-        # self._passes = [OnePass(model_fn, name="OnePass_" + str(i)) for i in range(self.steps)]
+        self._passes = snt.Sequential(
+            [OnePass(lambda: self._make_mlp(self.lat_size), name="OnePass_" + str(i)) for i in range(self.steps)])
         self.learn_features = learn_features
         self._edge_norm = Normalizer(edge_feat_cnt, name="EdgeNorm")
         self._node_norm = Normalizer(node_feat_cnt, name="NodeNorm")
@@ -48,9 +62,7 @@ class EncodeProcessDecode(snt.Module):
         st = grp
         grp = grp.replace(nodes=self._node_norm(grp.nodes, is_learning), edges=self._edge_norm(grp.edges, is_learning))
         grp = self._encode(grp)
-        model_fn = functools.partial(self._make_mlp, output_size=self.lat_size)
-        for i in range(self.steps):
-            grp = OnePass(model_fn)(grp)
+        grp = self._passes(grp)
         if is_learning:
             return self._decode(grp)
         else:
@@ -74,23 +86,6 @@ class EncodeProcessDecode(snt.Module):
         error = tf.reduce_sum((target_normalized - res.nodes) ** 2, axis=1)
         loss = tf.reduce_mean(error[loss_mask])
         return loss
-
-
-class OnePass(snt.Module):
-    def __init__(self, mlp_func, name="OnePass"):
-        super(OnePass, self).__init__(name=name)
-        self._to_nodes = blocks.NodeBlock(
-            node_model_fn=lambda: mlp_func(),
-            use_globals=False)
-        self._to_edges = blocks.EdgeBlock(
-            edge_model_fn=lambda: mlp_func(),
-            use_globals=False)
-
-    def __call__(self, grp):
-        st = grp
-        grp = self._to_edges(grp)
-        grp = self._to_nodes(grp)
-        return st.replace(nodes=st.nodes + grp.nodes, edges=st.edges + grp.edges)
 
 
 if __name__ == '__main__':
