@@ -1,2 +1,2 @@
-model_checkpoint_path: "multinet-19"
-all_model_checkpoint_paths: "multinet-19"
+model_checkpoint_path: "multinet-25"
+all_model_checkpoint_paths: "multinet-25"
