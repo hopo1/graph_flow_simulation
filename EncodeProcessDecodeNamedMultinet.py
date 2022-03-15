@@ -1,5 +1,8 @@
+import functools
+
 import sonnet as snt
 import tensorflow as tf
+from graph_nets import blocks
 
 from Normalizer import Normalizer
 from common import NodeType
@@ -14,8 +17,8 @@ class EncodeProcessDecode(snt.Module):
         self.lat_size = lat_size
         self.la_norm = la_norm
         self.steps = steps
-        self._to_nodes = [self._make_mlp(self.lat_size, name="nodeMlp_" + str(i)) for i in range(self.steps)]
-        self._to_edges = [self._make_mlp(self.lat_size, name="edgeMlp_" + str(i)) for i in range(self.steps)]
+        model_fn = functools.partial(self._make_mlp, output_size=self.lat_size)
+        self._passes = [OnePass(model_fn, name="OnePass_" + str(i)) for i in range(self.steps)]
         self.learn_features = learn_features
         self._edge_norm = Normalizer(edge_feat_cnt, name="EdgeNorm")
         self._node_norm = Normalizer(node_feat_cnt, name="NodeNorm")
@@ -40,33 +43,12 @@ class EncodeProcessDecode(snt.Module):
             network = snt.Sequential([network, snt.LayerNorm(-1, True, True, name=name)], name=name)
         return network
 
-    def _update_edge_features(self, grp, pass_num):
-        """Aggregrates node features, and applies edge function."""
-        sender_features = tf.gather(grp.nodes, grp.senders)
-        receiver_features = tf.gather(grp.nodes, grp.receivers)
-        features = [sender_features, receiver_features, grp.edges]
-        return self._to_edges[pass_num](tf.concat(features, axis=-1))
-
-    def _update_node_features(self, grp, new_edges, pass_num):
-        """Aggregrates edge features, and applies node function."""
-        num_nodes = grp.nodes.shape[0]
-        features = [grp.nodes, tf.math.unsorted_segment_sum(new_edges, grp.receivers, num_nodes)]
-        return self._to_nodes[pass_num](tf.concat(features, axis=-1))
-
-    def _pass_message(self, graph, pass_num):
-        # apply edge functions
-        new_edges = self._update_edge_features(graph, pass_num)
-        # apply node function
-        new_nodes = self._update_node_features(graph, new_edges, pass_num)
-
-        return graph.replace(nodes=graph.nodes + new_nodes, edges=graph.edges + new_edges)
-
     def __call__(self, grp, is_learning=False):
         st = grp
         grp = grp.replace(nodes=self._node_norm(grp.nodes, is_learning), edges=self._edge_norm(grp.edges, is_learning))
         grp = self._encode(grp)
         for i in range(self.steps):
-            grp = self._pass_message(grp, i)
+            grp = self._passes[i](grp)
         if is_learning:
             return self._decode(grp)
         else:
@@ -90,6 +72,23 @@ class EncodeProcessDecode(snt.Module):
         error = tf.reduce_sum((target_normalized - res.nodes) ** 2, axis=1)
         loss = tf.reduce_mean(error[loss_mask])
         return loss
+
+
+class OnePass(snt.Module):
+    def __init__(self, mlp_func, name="OnePass"):
+        super(OnePass, self).__init__(name=name)
+        self._to_nodes = blocks.NodeBlock(
+            node_model_fn=lambda: mlp_func(),
+            use_globals=False)
+        self._to_edges = blocks.EdgeBlock(
+            edge_model_fn=lambda: mlp_func(),
+            use_globals=False)
+
+    def __call__(self, grp):
+        st = grp
+        grp = self._to_edges(grp)
+        grp = self._to_nodes(grp)
+        return st.replace(nodes=st.nodes + grp.nodes, edges=st.edges + grp.edges)
 
 
 if __name__ == '__main__':
