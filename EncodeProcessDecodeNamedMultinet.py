@@ -18,7 +18,8 @@ class EncodeProcessDecode(snt.Module):
         self.la_norm = la_norm
         self.steps = steps
         model_fn = functools.partial(self._make_mlp, output_size=self.lat_size)
-        self._passes = [OnePass(model_fn, name="OnePass_" + str(i)) for i in range(self.steps)]
+        #self._passes = OnePass(model_fn)
+        # self._passes = [OnePass(model_fn, name="OnePass_" + str(i)) for i in range(self.steps)]
         self.learn_features = learn_features
         self._edge_norm = Normalizer(edge_feat_cnt, name="EdgeNorm")
         self._node_norm = Normalizer(node_feat_cnt, name="NodeNorm")
@@ -47,8 +48,9 @@ class EncodeProcessDecode(snt.Module):
         st = grp
         grp = grp.replace(nodes=self._node_norm(grp.nodes, is_learning), edges=self._edge_norm(grp.edges, is_learning))
         grp = self._encode(grp)
+        model_fn = functools.partial(self._make_mlp, output_size=self.lat_size)
         for i in range(self.steps):
-            grp = self._passes[i](grp)
+            grp = OnePass(model_fn)(grp)
         if is_learning:
             return self._decode(grp)
         else:
