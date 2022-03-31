@@ -1,2 +1,2 @@
-model_checkpoint_path: "named-128"
-all_model_checkpoint_paths: "named-128"
+model_checkpoint_path: "named-156"
+all_model_checkpoint_paths: "named-156"
