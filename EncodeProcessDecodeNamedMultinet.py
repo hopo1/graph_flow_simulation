@@ -70,14 +70,14 @@ class EncodeProcessDecode(snt.Module):
                 self._decode(grp).nodes[..., :self.learn_features])
             return st.replace(nodes=tf.concat([new_speed, st.nodes[..., self.learn_features:]], 1))
 
-    def loss(self, grp, inputs):
+    def loss(self, grp, inputs, targets=('velocity',)):
         res = self(grp, is_learning=True)
 
         # build target velocity change
-        cur_velocity = inputs['velocity']
-        target_velocity = inputs['target|velocity']
-        target_velocity_change = target_velocity - cur_velocity
-        target_normalized = self._out_norm(target_velocity_change, True)
+        cur_values = tf.concat([inputs[x] for x in targets], axis=1)  # check if works
+        target_values = tf.concat([inputs['target|' + x] for x in targets], axis=1)
+        target_values_change = target_values - cur_values
+        target_normalized = self._out_norm(target_values_change, True)
 
         # build loss
         node_type = inputs['node_type'][:, 0]
