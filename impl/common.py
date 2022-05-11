@@ -6,7 +6,7 @@ from graph_nets import utils_tf
 class NodeType(enum.IntEnum):
     NORMAL = 0
     AIRFOIL = 2
-    INFLOW = 4
+    OUTFLOW = 5
 
 def triangles_to_edges(faces):
     #taken from https://github.com/deepmind/deepmind-research/blob/master/meshgraphnets/common.py
